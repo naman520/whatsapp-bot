@@ -1,88 +1,75 @@
-const {
-  default: makeWASocket,
-  useMultiFileAuthState,
-  DisconnectReason,
-} = require("@whiskeysockets/baileys");
+import makeWASocket, { useMultiFileAuthState, DisconnectReason } from "@whiskeysockets/baileys";
+import qrcode from "qrcode-terminal";
+import fs from "fs";
 
-const qrcode = require("qrcode-terminal");
+const AUTH_DIR = fs.existsSync("/data") ? "/data/baileys_auth" : "./baileys_auth";
+const WA_PHONE = (process.env.WA_PHONE || "").replace(/\D/g, ""); // digits only
+
+let pairingRequested = false;
 
 async function startBot() {
-  const { state, saveCreds } = await useMultiFileAuthState("./auth_info");
+  const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
 
   const sock = makeWASocket({
     auth: state,
+    printQRInTerminal: !WA_PHONE, // QR only if phone not provided
   });
 
   sock.ev.on("creds.update", saveCreds);
 
-  sock.ev.on("connection.update", (update) => {
-    const {
-      default: makeWASocket,
-      useMultiFileAuthState,
-      DisconnectReason,
-    } = require("@whiskeysockets/baileys");
-    const P = require("pino");
+  sock.ev.on("connection.update", async (update) => {
+    const { connection, lastDisconnect, qr } = update;
 
-    async function startSock() {
-      const { state, saveCreds } = await useMultiFileAuthState("auth_info");
-
-      const sock = makeWASocket({
-        auth: state,
-        logger: P({ level: "silent" }),
-        browser: ["Railway Bot", "Chrome", "1.0.0"],
-      });
-
-      sock.ev.on("creds.update", saveCreds);
-
-      sock.ev.on("connection.update", async (update) => {
-        const { connection, lastDisconnect } = update;
-
-        if (connection === "open") {
-          console.log("✅ WhatsApp Connected");
-        }
-
-        if (connection === "close") {
-          const shouldReconnect =
-            lastDisconnect?.error?.output?.statusCode !==
-            DisconnectReason.loggedOut;
-
-          if (shouldReconnect) {
-            startSock();
-          }
-        }
-
-        if (connection === "connecting" && !sock.authState.creds.registered) {
-          const phone = process.env.PHONE;
-          const code = await sock.requestPairingCode(phone);
-          console.log("🔐 Pairing Code:", code);
-        }
-      });
+    // Local QR (only if WA_PHONE not set)
+    if (qr && !WA_PHONE) {
+      qrcode.generate(qr, { small: true });
     }
 
-    startSock();
+    if (connection === "close") {
+      const code = lastDisconnect?.error?.output?.statusCode;
+      const shouldReconnect = code !== DisconnectReason.loggedOut;
+      console.log("❌ Connection closed. Reconnect?", shouldReconnect, "code:", code);
+      if (shouldReconnect) startBot();
+    }
+
+    if (connection === "open") {
+      console.log("✅ WhatsApp connected!");
+    }
+
+    // Pairing code flow (best for Railway)
+    if (!sock.authState.creds.registered && WA_PHONE && !pairingRequested) {
+      pairingRequested = true;
+
+      // small delay helps avoid 428 in many cases
+      setTimeout(async () => {
+        try {
+          const code = await sock.requestPairingCode(WA_PHONE);
+          console.log("🔗 Pairing Code:", code);
+          console.log("WhatsApp → Linked Devices → Link with phone number → enter code");
+        } catch (err) {
+          pairingRequested = false; // allow retry on next update
+          console.error("❌ Failed to get pairing code:", err?.output?.statusCode, err?.message || err);
+        }
+      }, 2500);
+    }
   });
 
-  // MESSAGE LISTENER
+  // your message handler (keep yours)
   sock.ev.on("messages.upsert", async ({ messages }) => {
     const msg = messages[0];
-
-    if (!msg.message) return;
-    if (msg.key.remoteJid === "status@broadcast") return;
+    if (!msg?.message) return;
 
     const sender = msg.key.remoteJid;
-
-    // ❌ Ignore groups
     if (sender.endsWith("@g.us")) return;
-
-    // ❌ Ignore self messages
     if (msg.key.fromMe) return;
 
     const text =
-      msg.message.conversation || msg.message.extendedTextMessage?.text || "";
+      msg.message.conversation ||
+      msg.message.extendedTextMessage?.text ||
+      "";
 
     console.log(`📩 Message from ${sender}: ${text}`);
 
-    // ✅ Reply once per incoming message
     await sock.sendMessage(sender, {
       text: "Thanks for your message! We'll reply shortly.",
     });
