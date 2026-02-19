@@ -168,76 +168,219 @@ let botStartTime = Date.now();
 // ============================================  
 // KEYWORD REPLIES  
 // ============================================  
-const keywordReplies = [  
-  {  
-    keywords: ["hi", "hello", "hey", "hii", "hiii", "helo"],  
-    reply: "Hi! 👋 How can we help you today?",  
-  },  
-  {  
-    keywords: [  
-      "what is dholera",  
-      "dholera kya hai",  
-      "about dholera",  
-      "dholera",  
-    ],  
-    reply: `🏙️ *Dholera* is an upcoming Greenfield Smart City — a dream project of Honorable PM Narendra Modi.  
-  
-It is India's first smart city being built from scratch under the DMIC (Delhi-Mumbai Industrial Corridor) project.  
-  
-Would you like to know about our plot offerings? Type *"price"* to know more!`,  
-  },  
-  {  
-    keywords: ["price", "rate", "cost", "kitna", "amount", "plot"],  
-    reply: `💰 *Our Offering:*  
-  
-✅ Residential Plots under *₹10 Lakh*  
-📍 0 KM from SIR (Special Investment Region)  
-🛣️ 5 min from Dholera-Ahmedabad Expressway  
-📐 Multiple sizes available  
-  
-Would you like to schedule a *free site visit*? 🚗  
-Type *"visit"* to book now!`,  
-  },  
-  {  
-    keywords: ["visit", "site visit", "book", "dekhna hai"],  
-    reply: `🚗 *Site Visit Booking*  
-  
-We offer *FREE pickup & drop* for site visits!  
-  
-📞 Please share:  
-1️⃣ Your Name  
-2️⃣ Preferred Date  
-3️⃣ Number of People  
-  
-Our team will confirm your visit shortly! ✅`,  
-  },  
-  {  
-    keywords: ["location", "kahan hai", "where", "map"],  
-    reply: `📍 *Location:*  
-  
-Dholera Smart City, Gujarat  
-🛣️ 100 KM from Ahmedabad  
-✈️ Near upcoming Dholera International Airport  
-🚄 On Delhi-Mumbai Industrial Corridor  
-  
-Google Maps: https://maps.google.com/?q=Dholera+Smart+City`,  
-  },  
-  {  
-    keywords: ["thank", "thanks", "dhanyawad", "shukriya"],  
-    reply:  
-      "You're welcome! 😊 Feel free to ask anything anytime. We're here to help! 🙏",  
-  },  
-];  
-  
-const DEFAULT_REPLY = `Thanks for your message! 🙏  
-  
-Here's what I can help you with:  
-1️⃣ Type *"Dholera"* — Know about Dholera Smart City  
-2️⃣ Type *"Price"* — Get plot pricing details  
-3️⃣ Type *"Visit"* — Book a free site visit  
-4️⃣ Type *"Location"* — Get location details  
-  
-Or just ask your question and our team will respond shortly! 😊`;  
+const keywordReplies = [
+  // ===== MAIN GREETING =====
+  {
+    keywords: ["hi", "hello", "hey", "start", "menu"],
+    reply: `Hi there! 👋
+Thanks for reaching out to BookMyAssets.
+
+How can we help you today?
+
+Reply with:
+📍 DHOLERA - Learn about Dholera Smart City
+🏘️ INVEST - Explore premium residential plots
+🏗️ PROJECT - Know about WestWyn Estate
+💬 OTHER - Something else`,
+  },
+
+  // ===== DHOLERA FLOW =====
+  {
+    keywords: ["dholera"],
+    reply: `Dholera Smart City is India's first greenfield smart city under the Delhi-Mumbai Industrial Corridor (DMIC).
+
+Located 100 km from Ahmedabad, it is becoming a major industrial & semiconductor hub with ₹2+ lakh crore corporate commitments, including Tata's ₹91,000 crore semiconductor plant.
+
+What would you like to explore?
+
+Reply with:
+📰 NEWS - Latest updates
+🏗️ PROJECTS - Mega infrastructure updates
+🎥 VIDEOS - Drone footage & expert insights`,
+  },
+
+  {
+    keywords: ["news"],
+    reply: `Here are this week's top Dholera updates:
+🔗 https://www.bookmyassets.com/dholera-sir-updates
+
+Reply MENU to return to main options or ADVISOR to speak with our team.`,
+  },
+
+  {
+    keywords: ["projects"],
+    reply: `Dholera's Mega Infrastructure Projects:
+
+✈️ Dholera International Airport (Under construction)
+🛣️ Ahmedabad-Dholera Expressway (Operational)
+🏭 Tata Semiconductor Plant (Production 2027)
+🚇 Proposed Metro Rail Network
+⚡ 5,000 MW Asia’s Largest Solar Park
+
+🔗 https://www.bookmyassets.com/about-dholera-sir
+
+Reply MENU to return to main options or ADVISOR to speak with our team.`,
+  },
+
+  {
+    keywords: ["videos"],
+    reply: `Watch Dholera's real progress:
+
+🚁 Live Drone Footage
+🎥 Expert Analysis & Market Insights
+
+👉 Visit our YouTube channel: BookMyAssets - YouTube
+
+Reply MENU to return to main options.`,
+  },
+
+  // ===== INVEST FLOW =====
+  {
+    keywords: ["invest"],
+    reply: `Excellent choice! 🏘️
+
+We offer premium NA-approved residential plots in Dholera starting at just ₹10 Lakh.
+
+What interests you?
+
+Reply with:
+✅ PLOTS - View plot options
+📞 CALL - Get advisor callback
+📍 VISIT - Schedule site visit`,
+  },
+
+  {
+    keywords: ["plots"],
+    reply: `Our flagship project: WestWyn Estate
+
+📍 Location: Vadhela-Navda Highway, near Hebatpur Industrial Zone (TP5)
+💰 Starting Price: ₹10 Lakh
+✅ NA Approved | Title Clear | AUDA Approved
+🛡️ Gated Community | 24/7 Security | EV Charging
+
+🔗 https://www.bookmyassets.com/dholera-residential-plots/westwyn-estate
+
+Reply CALL for personalized guidance or VISIT to schedule site inspection.`,
+  },
+
+  {
+    keywords: ["call"],
+    reply: `Perfect! Our investment advisor will call you within 24 hours.
+
+Please share best time to call:
+Morning / Afternoon / Evening
+
+Or call directly:
+📞 +91 81 30 37 16 47`,
+  },
+
+  {
+    keywords: ["visit"],
+    reply: `Great! We offer free guided site visits every week.
+
+You will receive a callback within 24 hours to confirm your visit booking.`,
+  },
+
+  // ===== PROJECT FLOW =====
+  {
+    keywords: ["project", "westwyn"],
+    reply: `WestWyn Estate - Premium Residential Plotting Project 🏘️
+
+📍 Location: Vadhela-Navda Highway, near Hebatpur Industrial Zone (TP5)
+💰 Starting Price: ₹10 Lakh
+✅ NA Approved | Gated Community | 24/7 Security | EV Charging
+
+Why WestWyn?
+• 0 km from Dholera SIR boundary
+• 5 min from Ahmedabad-Dholera Expressway
+• Near TP5 (2nd largest industrial zone)
+
+Reply ADVISOR for personalized guidance or VISIT to schedule site inspection.`,
+  },
+
+  // ===== OTHER FLOW =====
+  {
+    keywords: ["other"],
+    reply: `No problem! How else can we assist you?
+
+Reply with:
+📞 CONTACT - Office address & phone number
+🌐 HIRING - Join our team
+📲 CHANNEL - Become a channel partner
+❓ QUESTION - Ask anything specific`,
+  },
+
+  {
+    keywords: ["contact"],
+    reply: `BookMyAssets - Dholera Experts
+
+📞 Phone: +91 81 30 37 16 47
+📧 Email: info@bookmyassets.com
+🌐 Website: www.bookmyassets.com
+
+🏢 Office:
+620, JMD Megapolis, Sector 48,
+Gurugram, Haryana 122001
+
+Business Hours:
+Mon-Sat, 10 AM - 7 PM
+
+Reply MENU to return to main options.`,
+  },
+
+  {
+    keywords: ["hiring"],
+    reply: `Interested in joining BookMyAssets?
+
+Send resume to:
+📧 hr@bookmyassets.com
+
+Or call HR:
+📞 +91 97 17 67 11 12`,
+  },
+
+  {
+    keywords: ["channel"],
+    reply: `Interested in becoming a Channel Partner? 🤝
+
+Benefits:
+✅ High commission structure
+✅ Marketing support
+✅ Dedicated relationship manager
+✅ Timely payouts
+
+Apply here:
+https://www.bookmyassets.com/channel-partner
+
+Or call:
+📞 +91 81 30 37 16 47`,
+  },
+
+  {
+    keywords: ["question"],
+    reply: `Sure! Please type your question.
+
+Our team responds within 1-2 hours during business hours (Mon-Sat, 10 AM - 7 PM).
+
+For urgent queries:
+📞 +91 81 30 37 16 47`,
+  },
+
+  // ===== ADVISOR KEYWORD =====
+  {
+    keywords: ["advisor"],
+    reply: `Our investment advisor will contact you shortly.
+
+For immediate assistance:
+📞 +91 81 30 37 16 47`,
+  },
+];
+
+const DEFAULT_REPLY = `Sorry, I didn't understand that. 😅
+
+Reply with one of these keywords:
+DHOLERA | INVEST | PROJECT | OTHER | MENU`;
+
   
 function getReply(text) {  
   const lowerText = text.toLowerCase().trim();  
