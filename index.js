@@ -13,7 +13,7 @@ const fs = require("fs");
 // ============================================
 // CONFIGURATION
 // ============================================
-const ADMIN_NUMBER = "918920563009@s.whatsapp.net"; // Replace with your admin number (include country code, no +)
+const ADMIN_NUMBER = "919999999999@s.whatsapp.net"; // Replace with your admin number (include country code, no +)
 const AUTH_DIR = "./auth_info";
 const INACTIVITY_MS = 3 * 60 * 1000; // 3 minutes
 
@@ -302,12 +302,19 @@ Reply CALL for personalized guidance or VISIT to schedule site inspection.`,
     keywords: ["call"],
     reply: `Perfect! Our investment advisor will call you within 24 hours.
 
-Please share your details in this format:
+Please share your details. You can use either format:
 
-👤 *Name:* [Your Name]
-📱 *Phone:* [Your Phone Number]
-⏰ *Preferred Time:* [Morning/Afternoon/Evening]
-`,
+📝 *Simple format* (just type one after another):
+naman
+9999999999
+evening
+
+📝 *Detailed format* (with labels):
+Name: naman
+Phone: 9999999999
+Time: evening
+
+Our team will reach out to you soon!`,
     nextStep: "collect_contact",
   },
   {
@@ -316,11 +323,17 @@ Please share your details in this format:
 
 You will receive a callback within 24 hours to confirm your visit booking.
 
-Please share your details in this format:
+Please share your details. You can use either format:
 
-👤 *Name:* [Your Name]
-📱 *Phone:* [Your Phone Number]
-📅 *Preferred Date:* [Day/Date]`,
+📝 *Simple format* (just type one after another):
+naman
+9999999999
+next Monday
+
+📝 *Detailed format* (with labels):
+Name: naman
+Phone: 9999999999
+Date: next Monday`,
     nextStep: "collect_visit",
   },
   {
@@ -394,13 +407,19 @@ For urgent queries:
     keywords: ["advisor", "Advisor"],
     reply: `Our investment advisor will contact you shortly.
 
-Please share your details in this format:
+Please share your details. You can use either format:
 
-👤 *Name:* [Your Name]
-📱 *Phone:* [Your Phone Number]
-⏰ *Preferred Time:* [Morning/Afternoon/Evening]
+📝 *Simple format* (just type one after another):
+naman
+9999999999
+evening
 
-`,
+📝 *Detailed format* (with labels):
+Name: naman
+Phone: 9999999999
+Time: evening
+
+Our team will reach out to you soon!`,
     nextStep: "collect_contact",
   },
   {
@@ -553,33 +572,99 @@ async function handleMessage(sock, msg) {
     // Parse the user's message to extract name, phone, and time
     const lines = text
       .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean);
+      .map((l) => (l ? l.trim() : ""))
+      .filter((l) => l.length > 0);
 
     let name = "Not provided";
     let phone = "Not provided";
     let time = "Not specified";
 
-    // Try to extract information from the message
-    for (const line of lines) {
-      const lowerLine = line.toLowerCase();
-      if (lowerLine.includes("name:")) {
-        name = line.split("name:")[1].trim() || name;
-      } else if (
-        lowerLine.includes("phone:") ||
-        lowerLine.includes("mobile:")
+    try {
+      // Check if this is a simple format (just name and phone on separate lines)
+      if (
+        lines.length >= 2 &&
+        !lines[0].toLowerCase().includes("name:") &&
+        !lines[0].toLowerCase().includes("phone:")
       ) {
-        phone = line.split(/phone:|mobile:/i)[1].trim() || phone;
-      } else if (
-        lowerLine.includes("time:") ||
-        lowerLine.includes("preferred time:")
-      ) {
-        time = line.split(/time:|preferred time:/i)[1].trim() || time;
-      } else if (lines.length === 3 && !line.includes(":")) {
-        // If no labels, assume order: name, phone, time
-        if (!name || name === "Not provided") name = line;
-        else if (!phone || phone === "Not provided") phone = line;
-        else if (!time || time === "Not specified") time = line;
+        // Simple format: first line is name, second line is phone
+        name = lines[0] || "Not provided";
+        phone = lines[1] || "Not provided";
+
+        // If there's a third line, treat it as preferred time
+        if (lines.length >= 3) {
+          time = lines[2] || "Not specified";
+        }
+      } else {
+        // Try to extract labeled information
+        for (const line of lines) {
+          if (!line) continue;
+
+          const lowerLine = line.toLowerCase();
+          if (lowerLine.includes("name:")) {
+            const parts = line.split("name:");
+            if (parts.length > 1) name = parts[1].trim() || name;
+          } else if (
+            lowerLine.includes("phone:") ||
+            lowerLine.includes("mobile:") ||
+            lowerLine.includes("number:")
+          ) {
+            const parts = line.split(/phone:|mobile:|number:/i);
+            if (parts.length > 1) phone = parts[1].trim() || phone;
+          } else if (
+            lowerLine.includes("time:") ||
+            lowerLine.includes("preferred time:")
+          ) {
+            const parts = line.split(/time:|preferred time:/i);
+            if (parts.length > 1) time = parts[1].trim() || time;
+          }
+        }
+
+        // If labeled parsing didn't find name and phone, try to extract from lines
+        if (name === "Not provided" && phone === "Not provided") {
+          // Try to identify which line is phone number (contains digits)
+          let phoneLineIndex = -1;
+
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            // Check if line contains digits (phone number)
+            if (/\d{10,}/.test(line.replace(/[\s\-+]/g, ""))) {
+              phoneLineIndex = i;
+              phone = line;
+              break;
+            }
+          }
+
+          // If we found a phone line, assume the first non-phone line is name
+          if (phoneLineIndex > -1) {
+            // Look for name in other lines
+            for (let i = 0; i < lines.length; i++) {
+              if (
+                i !== phoneLineIndex &&
+                lines[i] &&
+                !lines[i].includes("time:")
+              ) {
+                name = lines[i];
+                break;
+              }
+            }
+          } else if (lines.length > 0) {
+            // No phone number found, just use first line as name
+            name = lines[0] || "Not provided";
+          }
+        }
+      }
+
+      // Clean up phone number (remove spaces, dashes, etc.)
+      if (phone !== "Not provided") {
+        phone = phone.replace(/[\s\-+()]/g, "");
+      }
+    } catch (parseError) {
+      console.error("Error parsing contact details:", parseError.message);
+      // If parsing fails, use the whole message as fallback
+      if (lines.length > 0) {
+        name = lines[0] || "Not provided";
+        if (lines.length > 1) phone = lines[1] || "Not provided";
+        if (lines.length > 2) time = lines[2] || "Not specified";
       }
     }
 
@@ -620,29 +705,95 @@ Please contact them within 24 hours.`;
   if (session.step === "collect_visit") {
     if (session.inactivityTimer) clearTimeout(session.inactivityTimer);
 
+    // Safely split and filter lines
     const lines = text
       .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean);
+      .map((l) => (l ? l.trim() : ""))
+      .filter((l) => l.length > 0);
 
     let name = "Not provided";
     let phone = "Not provided";
     let date = "Not specified";
 
-    for (const line of lines) {
-      const lowerLine = line.toLowerCase();
-      if (lowerLine.includes("name:")) {
-        name = line.split("name:")[1].trim() || name;
-      } else if (
-        lowerLine.includes("phone:") ||
-        lowerLine.includes("mobile:")
+    try {
+      // Check if this is a simple format
+      if (
+        lines.length >= 2 &&
+        !lines[0].toLowerCase().includes("name:") &&
+        !lines[0].toLowerCase().includes("phone:")
       ) {
-        phone = line.split(/phone:|mobile:/i)[1].trim() || phone;
-      } else if (
-        lowerLine.includes("date:") ||
-        lowerLine.includes("preferred date:")
-      ) {
-        date = line.split(/date:|preferred date:/i)[1].trim() || date;
+        // Simple format: first line is name, second line is phone
+        name = lines[0] || "Not provided";
+        phone = lines[1] || "Not provided";
+
+        // If there's a third line, treat it as preferred date
+        if (lines.length >= 3) {
+          date = lines[2] || "Not specified";
+        }
+      } else {
+        // Try to extract labeled information
+        for (const line of lines) {
+          if (!line) continue;
+
+          const lowerLine = line.toLowerCase();
+          if (lowerLine.includes("name:")) {
+            const parts = line.split("name:");
+            if (parts.length > 1) name = parts[1].trim() || name;
+          } else if (
+            lowerLine.includes("phone:") ||
+            lowerLine.includes("mobile:")
+          ) {
+            const parts = line.split(/phone:|mobile:/i);
+            if (parts.length > 1) phone = parts[1].trim() || phone;
+          } else if (
+            lowerLine.includes("date:") ||
+            lowerLine.includes("preferred date:")
+          ) {
+            const parts = line.split(/date:|preferred date:/i);
+            if (parts.length > 1) date = parts[1].trim() || date;
+          }
+        }
+
+        // If labeled parsing didn't find name and phone, try to extract from lines
+        if (name === "Not provided" && phone === "Not provided") {
+          let phoneLineIndex = -1;
+
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            if (/\d{10,}/.test(line.replace(/[\s\-+]/g, ""))) {
+              phoneLineIndex = i;
+              phone = line;
+              break;
+            }
+          }
+
+          if (phoneLineIndex > -1) {
+            for (let i = 0; i < lines.length; i++) {
+              if (
+                i !== phoneLineIndex &&
+                lines[i] &&
+                !lines[i].includes("date:")
+              ) {
+                name = lines[i];
+                break;
+              }
+            }
+          } else if (lines.length > 0) {
+            name = lines[0] || "Not provided";
+          }
+        }
+      }
+
+      // Clean up phone number
+      if (phone !== "Not provided") {
+        phone = phone.replace(/[\s\-+()]/g, "");
+      }
+    } catch (parseError) {
+      console.error("Error parsing visit details:", parseError.message);
+      if (lines.length > 0) {
+        name = lines[0] || "Not provided";
+        if (lines.length > 1) phone = lines[1] || "Not provided";
+        if (lines.length > 2) date = lines[2] || "Not specified";
       }
     }
 
