@@ -5,10 +5,17 @@ const {
 } = require("@whiskeysockets/baileys");
 
 const qrcode = require("qrcode-terminal");
-const QRCode = require("qrcode"); // Generates QR as image/base64
+const QRCode = require("qrcode");
 const http = require("http");
 const pino = require("pino");
 const fs = require("fs");
+
+// ============================================
+// CONFIGURATION
+// ============================================
+const ADMIN_NUMBER = "919999999999@s.whatsapp.net"; // Replace with your admin number (include country code, no +)
+const AUTH_DIR = "./auth_info";
+const INACTIVITY_MS = 3 * 60 * 1000; // 3 minutes
 
 // ============================================
 // STORE LATEST QR FOR WEB PAGE
@@ -17,19 +24,16 @@ let latestQR = null;
 let botStatus = "⏳ Starting...";
 
 // ============================================
-// WEB SERVER — View QR code in browser!
-// Visit your Railway URL to scan QR
+// WEB SERVER
 // ============================================
 const PORT = process.env.PORT || 3000;
 
 http
   .createServer(async (req, res) => {
-    // Main page — shows QR or status
     if (req.url === "/" || req.url === "/qr") {
       res.writeHead(200, { "Content-Type": "text/html" });
 
       if (latestQR) {
-        // Generate QR as base64 image
         const qrImageDataURL = await QRCode.toDataURL(latestQR, {
           width: 400,
           margin: 2,
@@ -97,7 +101,6 @@ http
           </html>  
         `);
       } else {
-        // No QR — bot is either connected or starting
         res.end(`  
           <!DOCTYPE html>  
           <html>  
@@ -136,9 +139,7 @@ http
           </html>  
         `);
       }
-    }
-    // Health check endpoint
-    else if (req.url === "/health") {
+    } else if (req.url === "/health") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ status: "running", bot: botStatus }));
     } else {
@@ -148,13 +149,11 @@ http
   })
   .listen(PORT, () => {
     console.log(`🌐 Web server running on port ${PORT}`);
-    console.log(`📱 Open your Railway URL in browser to scan QR!`);
   });
 
 // ============================================
 // AUTH DIRECTORY
 // ============================================
-const AUTH_DIR = "./auth_info";
 if (!fs.existsSync(AUTH_DIR)) {
   fs.mkdirSync(AUTH_DIR, { recursive: true });
 }
@@ -167,19 +166,28 @@ let botStartTime = Date.now();
 const userSessions = new Map();
 
 // ============================================
-// INACTIVITY TIMER — 3 minutes
+// HELPER FUNCTIONS
 // ============================================
-const INACTIVITY_MS = 3 * 60 * 1000; // 3 minutes
+function formatPhoneNumber(jid) {
+  return jid.split("@")[0];
+}
+
+async function notifyAdmin(sock, message) {
+  try {
+    await sock.sendMessage(ADMIN_NUMBER, { text: message });
+    console.log(`📢 Admin notified: ${message.substring(0, 50)}...`);
+  } catch (error) {
+    console.error("Failed to notify admin:", error.message);
+  }
+}
 
 function startInactivityTimer(sock, sender) {
-  // Clear any existing inactivity timer for this user
   const session = userSessions.get(sender) || {};
   if (session.inactivityTimer) {
     clearTimeout(session.inactivityTimer);
   }
 
   const timer = setTimeout(async () => {
-    // Only send if user has no active step (not mid-flow)
     const currentSession = userSessions.get(sender);
     if (!currentSession || !currentSession.step) {
       try {
@@ -192,7 +200,6 @@ Reply with:
 📱 *SOCIAL* - Social Media
 🔍 *GOOGLE* - Google Search`,
         });
-        // Mark that we've asked the source question
         userSessions.set(sender, { ...currentSession, step: "asked_source" });
       } catch (err) {
         console.error("Inactivity message failed:", err.message);
@@ -207,7 +214,6 @@ Reply with:
 // KEYWORD REPLIES
 // ============================================
 const keywordReplies = [
-  // ===== MAIN GREETING =====
   {
     keywords: ["hi", "hello", "hey", "start", "menu"],
     reply: `Hi there! 👋
@@ -221,8 +227,6 @@ Reply with:
 🏗️ PROJECT - Know about WestWyn Estate
 💬 OTHER - Something else`,
   },
-
-  // ===== DHOLERA FLOW =====
   {
     keywords: ["dholera"],
     reply: `Dholera Smart City is India's first greenfield smart city under the Delhi-Mumbai Industrial Corridor (DMIC).
@@ -236,7 +240,6 @@ Reply with:
 🏗️ PROJECTS - Mega infrastructure updates
 🎥 VIDEOS - Drone footage & expert insights`,
   },
-
   {
     keywords: ["news"],
     reply: `Here are this week's top Dholera updates:
@@ -244,7 +247,6 @@ Reply with:
 
 Reply MENU to return to main options or ADVISOR to speak with our team.`,
   },
-
   {
     keywords: ["projects"],
     reply: `Dholera's Mega Infrastructure Projects:
@@ -259,7 +261,6 @@ Reply MENU to return to main options or ADVISOR to speak with our team.`,
 
 Reply MENU to return to main options or ADVISOR to speak with our team.`,
   },
-
   {
     keywords: ["videos"],
     reply: `Watch Dholera's real progress:
@@ -271,8 +272,6 @@ Reply MENU to return to main options or ADVISOR to speak with our team.`,
 
 Reply MENU to return to main options.`,
   },
-
-  // ===== INVEST FLOW =====
   {
     keywords: ["invest"],
     reply: `Excellent choice! 🏘️
@@ -286,7 +285,6 @@ Reply with:
 📞 CALL - Get advisor callback
 📍 VISIT - Schedule site visit`,
   },
-
   {
     keywords: ["plots"],
     reply: `Our flagship project: WestWyn Estate
@@ -300,28 +298,31 @@ Reply with:
 
 Reply CALL for personalized guidance or VISIT to schedule site inspection.`,
   },
-
   {
     keywords: ["call"],
     reply: `Perfect! Our investment advisor will call you within 24 hours.
 
-Please share your details so we can reach you:
+Please share your details in this format:
 
-👤 *Name:*
-📱 *Phone Number:*
-
-_(Reply with your name and phone number)_`,
+👤 *Name:* [Your Name]
+📱 *Phone:* [Your Phone Number]
+⏰ *Preferred Time:* [Morning/Afternoon/Evening]
+`,
     nextStep: "collect_contact",
   },
-
   {
     keywords: ["visit"],
     reply: `Great! We offer free guided site visits every week.
 
-You will receive a callback within 24 hours to confirm your visit booking.`,
-  },
+You will receive a callback within 24 hours to confirm your visit booking.
 
-  // ===== PROJECT FLOW =====
+Please share your details in this format:
+
+👤 *Name:* [Your Name]
+📱 *Phone:* [Your Phone Number]
+📅 *Preferred Date:* [Day/Date]`,
+    nextStep: "collect_visit",
+  },
   {
     keywords: ["project", "westwyn"],
     reply: `WestWyn Estate - Premium Residential Plotting Project 🏘️
@@ -337,7 +338,6 @@ Why WestWyn?
 
 Reply ADVISOR for personalized guidance or VISIT to schedule site inspection.`,
   },
-
   {
     keywords: ["contact"],
     reply: `BookMyAssets - Dholera Experts
@@ -355,7 +355,6 @@ Mon-Sat, 10 AM - 7 PM
 
 Reply MENU to return to main options.`,
   },
-
   {
     keywords: ["hiring"],
     reply: `Interested in joining BookMyAssets?
@@ -366,7 +365,6 @@ Send resume to:
 Or call HR:
 📞 +91 97 17 67 11 12`,
   },
-
   {
     keywords: ["channel"],
     reply: `Interested in becoming a Channel Partner? 🤝
@@ -383,7 +381,6 @@ https://www.bookmyassets.com/channel-partner
 Or call:
 📞 +91 81 30 37 16 47`,
   },
-
   {
     keywords: ["question"],
     reply: `Sure! Please type your question.
@@ -393,22 +390,19 @@ Our team responds within 1-2 hours during business hours (Mon-Sat, 10 AM - 7 PM)
 For urgent queries:
 📞 +91 81 30 37 16 47`,
   },
-
-  // ===== ADVISOR KEYWORD =====
   {
     keywords: ["advisor", "Advisor"],
     reply: `Our investment advisor will contact you shortly.
 
-Please share your details:
+Please share your details in this format:
 
-👤 *Name:*
-📱 *Phone Number:*
+👤 *Name:* [Your Name]
+📱 *Phone:* [Your Phone Number]
+⏰ *Preferred Time:* [Morning/Afternoon/Evening]
 
-_(Reply with your name and phone number)_`,
+`,
     nextStep: "collect_contact",
   },
-
-  // ===== OTHER FLOW =====
   {
     keywords: ["other"],
     reply: `No problem! How else can we assist you?
@@ -419,8 +413,6 @@ Reply with:
 📲 CHANNEL - Become a channel partner
 ❓ QUESTION - Ask anything specific`,
   },
-
-  // ===== SOURCE TRACKING =====
   {
     keywords: ["social"],
     reply: `Thanks for letting us know! 📱 Social media is a great way to stay updated.
@@ -489,7 +481,7 @@ async function startBot() {
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
       console.log(
-        `❌ Connection closed. Status: ${statusCode}. Reconnect: ${shouldReconnect}`
+        `❌ Connection closed. Status: ${statusCode}. Reconnect: ${shouldReconnect}`,
       );
       botStatus = `❌ Disconnected (${statusCode})`;
 
@@ -508,6 +500,9 @@ async function startBot() {
       console.log(`📋 Loaded ${keywordReplies.length} keyword groups`);
       console.log(`⏰ ${new Date().toISOString()}`);
       console.log("═══════════════════════════════════");
+
+      // Notify admin that bot is online
+      notifyAdmin(sock, "🤖 WhatsApp Bot is now ONLINE and ready to respond!");
     }
   });
 
@@ -543,38 +538,133 @@ async function handleMessage(sock, msg) {
   }
 
   const text =
-    msg.message.conversation ||
-    msg.message.extendedTextMessage?.text ||
-    "";
+    msg.message.conversation || msg.message.extendedTextMessage?.text || "";
 
   if (!text) return;
 
   const session = userSessions.get(sender) || {};
+  const senderNumber = formatPhoneNumber(sender);
 
-  // ── STEP: Collecting name & phone ──
+  // ── STEP: Collecting contact details (for call requests) ──
   if (session.step === "collect_contact") {
     // Cancel inactivity timer
     if (session.inactivityTimer) clearTimeout(session.inactivityTimer);
 
-    const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
-    const name = lines[0] || "Not provided";
-    const phone = lines[1] || "Not provided";
+    // Parse the user's message to extract name, phone, and time
+    const lines = text
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    let name = "Not provided";
+    let phone = "Not provided";
+    let time = "Not specified";
+
+    // Try to extract information from the message
+    for (const line of lines) {
+      const lowerLine = line.toLowerCase();
+      if (lowerLine.includes("name:")) {
+        name = line.split("name:")[1].trim() || name;
+      } else if (
+        lowerLine.includes("phone:") ||
+        lowerLine.includes("mobile:")
+      ) {
+        phone = line.split(/phone:|mobile:/i)[1].trim() || phone;
+      } else if (
+        lowerLine.includes("time:") ||
+        lowerLine.includes("preferred time:")
+      ) {
+        time = line.split(/time:|preferred time:/i)[1].trim() || time;
+      } else if (lines.length === 3 && !line.includes(":")) {
+        // If no labels, assume order: name, phone, time
+        if (!name || name === "Not provided") name = line;
+        else if (!phone || phone === "Not provided") phone = line;
+        else if (!time || time === "Not specified") time = line;
+      }
+    }
+
+    // Send confirmation to user
+    await sock.sendMessage(sender, {
+      text: `Thank you, *${name}*! ✅
+
+Your details have been recorded:
+📱 Phone: ${phone}
+⏰ Preferred Time: ${time}
+
+Our advisor will contact you soon.
+
+For immediate assistance, call us:
+📞 +91 81 30 37 16 47`,
+    });
+
+    // Send admin notification
+    const adminMessage = `📞 *New Callback Request*
+━━━━━━━━━━━━━━━━━━
+👤 *Name:* ${name}
+📱 *Phone:* ${phone}
+⏰ *Preferred Time:* ${time}
+📱 *User WhatsApp:* ${senderNumber}
+
+Please contact them within 24 hours.`;
+
+    await notifyAdmin(sock, adminMessage);
+
+    // Clear session and restart inactivity timer
+    userSessions.set(sender, {});
+    startInactivityTimer(sock, sender);
+    repliedMessages.add(messageId);
+    return;
+  }
+
+  // ── STEP: Collecting visit details ──
+  if (session.step === "collect_visit") {
+    if (session.inactivityTimer) clearTimeout(session.inactivityTimer);
+
+    const lines = text
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    let name = "Not provided";
+    let phone = "Not provided";
+    let date = "Not specified";
+
+    for (const line of lines) {
+      const lowerLine = line.toLowerCase();
+      if (lowerLine.includes("name:")) {
+        name = line.split("name:")[1].trim() || name;
+      } else if (
+        lowerLine.includes("phone:") ||
+        lowerLine.includes("mobile:")
+      ) {
+        phone = line.split(/phone:|mobile:/i)[1].trim() || phone;
+      } else if (
+        lowerLine.includes("date:") ||
+        lowerLine.includes("preferred date:")
+      ) {
+        date = line.split(/date:|preferred date:/i)[1].trim() || date;
+      }
+    }
 
     await sock.sendMessage(sender, {
       text: `Thank you, *${name}*! ✅
 
-Our advisor will contact you soon on *${phone}*.
+Your site visit request for *${date}* has been recorded.
 
-Please share your preferred call time:
-🌅 Morning
-☀️ Afternoon  
-🌙 Evening
-
-Or call us directly:
-📞 +91 81 30 37 16 47`,
+Our team will contact you on *${phone}* within 24 hours to confirm your visit.`,
     });
 
-    // Clear session and restart inactivity timer
+    const adminMessage = `📍 *New Site Visit Request*
+━━━━━━━━━━━━━━━━━━
+👤 *Name:* ${name}
+📱 *Phone:* ${phone}
+📅 *Preferred Date:* ${date}
+📱 *User WhatsApp:* ${senderNumber}
+
+Please contact them to confirm the visit.`;
+
+    await notifyAdmin(sock, adminMessage);
+
     userSessions.set(sender, {});
     startInactivityTimer(sock, sender);
     repliedMessages.add(messageId);
@@ -590,8 +680,20 @@ Or call us directly:
 
     if (lower.includes("social")) {
       sourceReply = `Thanks for letting us know! 📱 Social media is a great way to stay connected.\n\nReply MENU to explore more options.`;
+
+      // Notify admin about source
+      notifyAdmin(
+        sock,
+        `📊 *Lead Source Update*\nUser ${senderNumber} heard about us via *SOCIAL MEDIA*`,
+      );
     } else if (lower.includes("google")) {
       sourceReply = `Thanks for letting us know! 🔍 Glad you found us on Google.\n\nReply MENU to explore more options.`;
+
+      // Notify admin about source
+      notifyAdmin(
+        sock,
+        `📊 *Lead Source Update*\nUser ${senderNumber} heard about us via *GOOGLE SEARCH*`,
+      );
     } else {
       sourceReply = `Thanks for sharing! 😊\n\nReply MENU to explore our options.`;
     }
@@ -603,26 +705,32 @@ Or call us directly:
     return;
   }
 
-  console.log(`📩 From ${sender}: ${text}`);
+  console.log(`📩 From ${senderNumber}: ${text}`);
 
   // Reset inactivity timer on every message
   if (session.inactivityTimer) clearTimeout(session.inactivityTimer);
 
   const entry = getReplyEntry(text);
-  const reply = entry ? entry.reply : DEFAULT_REPLY;
+
+  if (!entry) {
+    // If no keyword match and not in a flow, send default reply
+    await sock.sendMessage(sender, { text: DEFAULT_REPLY });
+    repliedMessages.add(messageId);
+    startInactivityTimer(sock, sender);
+    return;
+  }
 
   try {
     await new Promise((resolve) => setTimeout(resolve, 500));
-    await sock.sendMessage(sender, { text: reply });
+    await sock.sendMessage(sender, { text: entry.reply });
     repliedMessages.add(messageId);
-    console.log(`✅ Replied to ${sender}`);
+    console.log(`✅ Replied to ${senderNumber}`);
 
     // If this keyword triggers a multi-step flow, set the session step
-    if (entry?.nextStep) {
+    if (entry.nextStep) {
       userSessions.set(sender, { step: entry.nextStep });
-      // Don't start inactivity timer during active flows
     } else {
-      // Start/reset inactivity timer for normal replies
+      userSessions.set(sender, {});
       startInactivityTimer(sock, sender);
     }
   } catch (error) {
@@ -639,6 +747,7 @@ Or call us directly:
 process.on("uncaughtException", (err) => {
   console.error("Uncaught Exception:", err);
 });
+
 process.on("unhandledRejection", (err) => {
   console.error("Unhandled Rejection:", err);
 });
