@@ -13,7 +13,7 @@ const fs = require("fs");
 // ============================================
 // CONFIGURATION
 // ============================================
-const ADMIN_NUMBER = "919999999999@s.whatsapp.net"; // Replace with your admin number (include country code, no +)
+const ADMIN_NUMBER = "918920563009@s.whatsapp.net"; // Replace with your admin number (include country code, no +)
 const AUTH_DIR = "./auth_info";
 const INACTIVITY_MS = 3 * 60 * 1000; // 3 minutes
 
