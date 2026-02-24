@@ -2,6 +2,8 @@ const {
   default: makeWASocket,
   useMultiFileAuthState,
   DisconnectReason,
+  fetchLatestBaileysVersion,
+  makeCacheableSignalKeyStore,
 } = require("@whiskeysockets/baileys");
 
 const qrcode = require("qrcode-terminal");
@@ -9,6 +11,7 @@ const QRCode = require("qrcode");
 const http = require("http");
 const pino = require("pino");
 const fs = require("fs");
+const { Boom } = require("@hapi/boom"); // Add this import
 
 // ============================================
 // CONFIGURATION
@@ -22,11 +25,27 @@ const INACTIVITY_MS = 3 * 60 * 1000; // 3 minutes
 // ============================================
 let latestQR = null;
 let botStatus = "⏳ Starting...";
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 10;
 
 // ============================================
 // WEB SERVER
 // ============================================
 const PORT = process.env.PORT || 3000;
+
+// Keep-alive for web server (prevents Railway from sleeping)
+setInterval(
+  () => {
+    http
+      .get(`http://localhost:${PORT}/health`, (res) => {
+        // Just a ping to keep the server alive
+      })
+      .on("error", (err) => {
+        // Ignore errors
+      });
+  },
+  5 * 60 * 1000,
+); // Every 5 minutes
 
 http
   .createServer(async (req, res) => {
@@ -192,13 +211,10 @@ function startInactivityTimer(sock, sender) {
     if (!currentSession || !currentSession.step) {
       try {
         await sock.sendMessage(sender, {
-          text: `Just checking in! 😊
-
-By the way, how did you hear about us?
-
-Reply with:
-📱 *SOCIAL* - Social Media
-🔍 *GOOGLE* - Google Search`,
+          text: `Hi! 👋
+Just checking in, did you get the information you needed about Dholera plots?
+Reply ADVISOR if you would like to discuss further or MENU to explore more options.
+We are here to help! 😊`,
         });
         userSessions.set(sender, { ...currentSession, step: "asked_source" });
       } catch (err) {
@@ -468,17 +484,34 @@ function getReplyEntry(text) {
 }
 
 // ============================================
-// BOT START
+// BOT START WITH IMPROVED CONNECTION HANDLING
 // ============================================
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
 
   const logger = pino({ level: "silent" });
 
+  // Get latest version
+  const { version, isLatest } = await fetchLatestBaileysVersion();
+  console.log(`Using WA v${version.join(".")}, isLatest: ${isLatest}`);
+
   const sock = makeWASocket({
-    auth: state,
+    version,
+    auth: {
+      creds: state.creds,
+      keys: makeCacheableSignalKeyStore(state.keys, logger),
+    },
     logger: logger,
+    printQRInTerminal: false, // We'll handle QR manually
     syncFullHistory: false,
+    generateHighQualityLinkPreview: false,
+    // Add these options for better connection
+    keepAliveIntervalMs: 30000, // Send keep-alive every 30 seconds
+    retryRequestDelayMs: 500,
+    markOnlineOnConnect: true,
+    defaultQueryTimeoutMs: 60000,
+    maxMsgRetryCount: 5,
+    shouldIgnoreJid: (jid) => jid === "status@broadcast",
   });
 
   sock.ev.on("creds.update", saveCreds);
@@ -489,6 +522,7 @@ async function startBot() {
     if (qr) {
       latestQR = qr;
       botStatus = "📱 Waiting for QR scan...";
+      reconnectAttempts = 0; // Reset reconnect attempts on new QR
       console.log("\n📱 QR Code received!");
       console.log("👉 Open your Railway URL in browser to scan!\n");
       qrcode.generate(qr, { small: true });
@@ -496,23 +530,46 @@ async function startBot() {
 
     if (connection === "close") {
       latestQR = null;
-      const statusCode = lastDisconnect?.error?.output?.statusCode;
-      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+
+      const statusCode =
+        lastDisconnect?.error instanceof Boom
+          ? lastDisconnect?.error?.output?.statusCode
+          : lastDisconnect?.error?.message;
+
+      const shouldReconnect =
+        statusCode !== DisconnectReason.loggedOut &&
+        reconnectAttempts < MAX_RECONNECT_ATTEMPTS;
 
       console.log(
-        `❌ Connection closed. Status: ${statusCode}. Reconnect: ${shouldReconnect}`,
+        `❌ Connection closed. Status: ${statusCode}. Attempt: ${reconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS}`,
       );
-      botStatus = `❌ Disconnected (${statusCode})`;
+
+      botStatus = `❌ Disconnected (${statusCode}) - Attempt ${reconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS}`;
 
       if (shouldReconnect) {
-        setTimeout(() => startBot(), 5000);
+        reconnectAttempts++;
+        // Exponential backoff
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 60000);
+        console.log(`🔄 Reconnecting in ${delay / 1000} seconds...`);
+        setTimeout(() => startBot(), delay);
+      } else if (statusCode === DisconnectReason.loggedOut) {
+        botStatus = "🚫 Logged out. Delete auth_info and restart.";
+        console.log(
+          "🚫 Logged out. Please delete auth_info folder and restart.",
+        );
+        // Optionally delete auth folder on logout
+        // fs.rmSync(AUTH_DIR, { recursive: true, force: true });
       } else {
-        botStatus = "🚫 Logged out. Delete auth_info and redeploy.";
+        botStatus = "❌ Max reconnection attempts reached. Restart manually.";
+        console.log(
+          "❌ Max reconnection attempts reached. Please restart manually.",
+        );
       }
     } else if (connection === "open") {
       latestQR = null;
       botStartTime = Date.now();
       botStatus = "✅ ONLINE and running!";
+      reconnectAttempts = 0; // Reset reconnect attempts on successful connection
 
       console.log("═══════════════════════════════════");
       console.log("✅ Bot is ONLINE and ready!");
@@ -522,6 +579,14 @@ async function startBot() {
 
       // Notify admin that bot is online
       notifyAdmin(sock, "🤖 WhatsApp Bot is now ONLINE and ready to respond!");
+
+      // Set up keep-alive ping
+      setInterval(() => {
+        if (sock.ws && sock.ws.readyState === 1) {
+          // WebSocket.OPEN
+          sock.sendPresenceUpdate("available");
+        }
+      }, 60000); // Send presence every minute
     }
   });
 
@@ -531,6 +596,8 @@ async function startBot() {
       await handleMessage(sock, msg);
     }
   });
+
+  return sock;
 }
 
 async function handleMessage(sock, msg) {
@@ -903,4 +970,5 @@ process.on("unhandledRejection", (err) => {
   console.error("Unhandled Rejection:", err);
 });
 
-startBot();
+// Start the bot
+startBot().catch(console.error);
