@@ -13,7 +13,7 @@ const fs = require("fs");
 // ============================================
 // CONFIGURATION
 // ============================================
-const ADMIN_NUMBER = "918920563009@s.whatsapp.net";
+const ADMIN_NUMBER = "918920563009@s.whatsapp.net"; // Replace with your admin number (include country code, no +)
 const AUTH_DIR = "./auth_info";
 const INACTIVITY_MS = 3 * 60 * 1000; // 3 minutes
 
@@ -192,11 +192,13 @@ function startInactivityTimer(sock, sender) {
     if (!currentSession || !currentSession.step) {
       try {
         await sock.sendMessage(sender, {
-          text: `Hi! 👋
-Just checking in, did you get the information you needed about Dholera plots?
-Reply ADVISOR if you would like to discuss further or MENU to explore more options.
-We are here to help! 😊
-`,
+          text: `Just checking in! 😊
+
+By the way, how did you hear about us?
+
+Reply with:
+📱 *SOCIAL* - Social Media
+🔍 *GOOGLE* - Google Search`,
         });
         userSessions.set(sender, { ...currentSession, step: "asked_source" });
       } catch (err) {
@@ -303,12 +305,12 @@ Reply CALL for personalized guidance or VISIT to schedule site inspection.`,
 Please share your details. You can use either format:
 
 📝 *Simple format* (just type one after another):
-Dholera
+naman
 9999999999
 evening
 
 📝 *Detailed format* (with labels):
-Name: Dholera
+Name: naman
 Phone: 9999999999
 Time: evening
 
@@ -324,12 +326,12 @@ You will receive a callback within 24 hours to confirm your visit booking.
 Please share your details. You can use either format:
 
 📝 *Simple format* (just type one after another):
-Dholera
+naman
 9999999999
 next Monday
 
 📝 *Detailed format* (with labels):
-Name: Dholera
+Name: naman
 Phone: 9999999999
 Date: next Monday`,
     nextStep: "collect_visit",
@@ -408,12 +410,12 @@ For urgent queries:
 Please share your details. You can use either format:
 
 📝 *Simple format* (just type one after another):
-Dholera
+naman
 9999999999
 evening
 
 📝 *Detailed format* (with labels):
-Name: Dholera
+Name: naman
 Phone: 9999999999
 Time: evening
 
