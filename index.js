@@ -233,7 +233,7 @@ const keywordReplies = [
   {
     keywords: ["hi", "hello", "hey", "start", "menu"],
     reply: `Hi there! 👋
-Thanks for reaching out to BookMyAssets.
+Thanks for reaching out to Dholera Times.
 
 How can we help you today?
 
@@ -259,7 +259,7 @@ Reply with:
   {
     keywords: ["news"],
     reply: `Here are this week's top Dholera updates:
-🔗 https://www.bookmyassets.com/dholera-sir-updates
+🔗 https://www.dholeratimes.com/dholera-updates/latest-updates
 
 Reply MENU to return to main options or ADVISOR to speak with our team.`,
   },
@@ -273,7 +273,7 @@ Reply MENU to return to main options or ADVISOR to speak with our team.`,
 🚇 Proposed Metro Rail Network
 ⚡ 5,000 MW Asia's Largest Solar Park
 
-🔗 https://www.bookmyassets.com/about-dholera-sir
+🔗 https://www.DholeraTimes.com/dholera-sir
 
 Reply MENU to return to main options or ADVISOR to speak with our team.`,
   },
@@ -284,7 +284,7 @@ Reply MENU to return to main options or ADVISOR to speak with our team.`,
 🚁 Live Drone Footage
 🎥 Expert Analysis & Market Insights
 
-👉 Visit our YouTube channel: https://www.youtube.com/@BookMyAssets
+👉 Visit our YouTube channel: https://www.youtube.com/@dholeratimes
 
 Reply MENU to return to main options.`,
   },
@@ -310,7 +310,7 @@ Reply with:
 ✅ NA Approved | Title Clear | AUDA Approved
 🛡️ Gated Community | 24/7 Security | EV Charging
 
-🔗 https://www.bookmyassets.com/dholera-residential-plots/westwyn-estate
+🔗 https://www.DholeraTimes.com/dholera-residential-plots/westwyn-estate
 
 Reply CALL for personalized guidance or VISIT to schedule site inspection.`,
   },
@@ -369,11 +369,11 @@ Reply ADVISOR for personalized guidance or VISIT to schedule site inspection.`,
   },
   {
     keywords: ["contact"],
-    reply: `BookMyAssets - Dholera Experts
+    reply: `Dholera Times - Dholera Experts
 
-📞 Phone: +91 81 30 37 16 47
-📧 Email: info@bookmyassets.com
-🌐 Website: www.bookmyassets.com
+📞 Phone: +91 99 58 99 35 49
+📧 Email: info@dholeraimes.com
+🌐 Website: www.DholeraTimes.com
 
 🏢 Office:
 620, JMD Megapolis, Sector 48,
@@ -384,16 +384,16 @@ Mon-Sat, 10 AM - 7 PM
 
 Reply MENU to return to main options.`,
   },
-  {
+ /*  {
     keywords: ["hiring"],
-    reply: `Interested in joining BookMyAssets?
+    reply: `Interested in joining Dholera Times?
 
 Send resume to:
-📧 hr@bookmyassets.com
+📧 hr@DholeraTimes.com
 
 Or call HR:
 📞 +91 97 17 67 11 12`,
-  },
+  }, */
   {
     keywords: ["channel"],
     reply: `Interested in becoming a Channel Partner? 🤝
@@ -405,10 +405,10 @@ Benefits:
 ✅ Timely payouts
 
 Apply here:
-https://www.bookmyassets.com/channel-partner
+https://www.DholeraTimes.com/channel-partner
 
 Or call:
-📞 +91 81 30 37 16 47`,
+📞 +91 99 58 99 35 49`,
   },
   {
     keywords: ["question"],
@@ -417,7 +417,7 @@ Or call:
 Our team responds within 1-2 hours during business hours (Mon-Sat, 10 AM - 7 PM).
 
 For urgent queries:
-📞 +91 81 30 37 16 47`,
+📞 +91 99 58 99 35 49`,
   },
   {
     keywords: ["advisor", "Advisor"],
@@ -746,7 +746,7 @@ Your details have been recorded:
 Our advisor will contact you soon.
 
 For immediate assistance, call us:
-📞 +91 81 30 37 16 47`,
+📞 +91 99 58 99 35 49`,
     });
 
     // Send admin notification
